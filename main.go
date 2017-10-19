@@ -84,7 +84,7 @@ func loop() {
 	paused := false
 
 	// various state for drawing
-	cam := Camera{Position: p.ZV, Speed: 500.0, Zoom: 1.0, ZSpeed: 1.1}
+	cam := Camera{Position: p.ZV, Speed: 250.0, Zoom: 1.0, ZSpeed: 1.1}
 	frames := 0
 	second := time.Tick(time.Second)
 	last := time.Now()
@@ -92,6 +92,11 @@ func loop() {
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
+
+		camMatrix := p.IM.
+			Scaled(cam.Position, cam.Zoom).
+			Moved(win.Bounds().Center().Sub(cam.Position))
+		win.SetMatrix(camMatrix)
 
 		// update user controlled things
 		if win.Pressed(pixelgl.KeyLeft) {
@@ -109,11 +114,25 @@ func loop() {
 		if win.JustPressed(pixelgl.KeySpace) {
 			paused = !paused
 		}
+		// win.SetTitle(fmt.Sprintf("Mouse (%.2f, %.2f)", mouse.X, mouse.Y))
+		if win.JustPressed(pixelgl.MouseButtonLeft) && paused {
+			// toggle a point's existence.
+			// use Round to change mouse floats to ints. Simple
+			// truncation will often place dot in wrong spot since
+			// Pixel uses the sprite's center as it's position.
+			mouse := camMatrix.Unproject(win.MousePosition())
+			point := g.Point{Round(mouse.X), Round(mouse.Y)}
+			if board[point] {
+				delete(board, point)
+			} else {
+				board[point] = true
+			}
+		}
+		if win.JustPressed(pixelgl.MouseButtonRight) && paused {
+			// allow user to increment the board state 1 iteration
+			board = g.Advance(board)
+		}
 		cam.Zoom *= math.Pow(cam.ZSpeed, win.MouseScroll().Y)
-
-		win.SetMatrix(p.IM.
-			Scaled(cam.Position, cam.Zoom).
-			Moved(win.Bounds().Center().Sub(cam.Position)))
 
 		// render game state
 		batch.Clear()
@@ -125,7 +144,7 @@ func loop() {
 		if paused {
 			win.Clear(colornames.Gray)
 		} else {
-		win.Clear(colornames.White)
+			win.Clear(colornames.White)
 		}
 		batch.Draw(win)
 		win.Update()
@@ -134,7 +153,9 @@ func loop() {
 		frames++
 		select {
 		case <-second:
-			win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
+			win.SetTitle(fmt.Sprintf(
+				"%s | FPS: %d | Paused: %v | %d cells",
+				cfg.Title, frames, paused, len(board)))
 			frames = 0
 		default:
 		}
@@ -148,4 +169,11 @@ func loop() {
 
 func pToV(point g.Point) p.Vec {
 	return p.V(float64(point.X), float64(point.Y))
+}
+
+func Round(val float64) int {
+	if val < 0 {
+		return int(val - 0.5)
+	}
+	return int(val + 0.5)
 }

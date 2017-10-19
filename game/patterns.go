@@ -2,6 +2,10 @@ package game
 
 // Patterns contains a number of pre-set patterns in `Board`s.
 var Patterns = map[string]Board{
+
+	// Blank
+	"blank": Board{},
+
 	// Blinker
 	"blinker": Board{
 		Point{0, 0}: true,
