@@ -85,6 +85,8 @@ func loop() {
 
 	// various state for drawing
 	cam := Camera{Position: p.ZV, Speed: 500.0, Zoom: 1.0, ZSpeed: 1.1}
+	frames := 0
+	second := time.Tick(time.Second)
 	last := time.Now()
 
 	for !win.Closed() {
@@ -120,9 +122,22 @@ func loop() {
 		}
 
 		// draw
+		if paused {
+			win.Clear(colornames.Gray)
+		} else {
 		win.Clear(colornames.White)
+		}
 		batch.Draw(win)
 		win.Update()
+
+		// basic speed metric in titlebar
+		frames++
+		select {
+		case <-second:
+			win.SetTitle(fmt.Sprintf("%s | FPS: %d", cfg.Title, frames))
+			frames = 0
+		default:
+		}
 
 		// update state
 		if !paused {
