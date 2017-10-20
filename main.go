@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"go/build"
 	"image"
 	_ "image/png"
 	"math"
 	"os"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -90,7 +91,13 @@ of the game.`
 	}
 
 	// construct path to image resources
-	resPath = path.Join(os.Getenv("GOPATH"), "src", "github.com", "quillaja", "go-life")
+	goPath := strings.Split(os.Getenv("GOPATH"), string(os.PathListSeparator))
+	if len(goPath) == 0 {
+		goPath = append(goPath, build.Default.GOPATH)
+	} else if goPath[0] == "" {
+		goPath[0] = build.Default.GOPATH
+	}
+	resPath = filepath.Join(goPath[0], "src", "github.com", "quillaja", "go-life")
 
 	// begin
 	if console {
@@ -114,7 +121,7 @@ func loop() {
 	}
 
 	// sprite loading
-	redPic, err := loadPicture(path.Join(resPath, "red.png"))
+	redPic, err := loadPicture(filepath.Join(resPath, "red.png"))
 	if err != nil {
 		panic(err)
 	}
