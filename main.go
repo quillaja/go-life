@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,17 +31,25 @@ var (
 	initPattern string
 	iterWait    time.Duration
 	console     bool
+	winSizeStr  string
 
-	resPath string
+	winBounds p.Rect
+	resPath   string
 )
 
 // demos the stuff
 func main() {
 
+	// command line options processing
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Plays Conway's Game of Life. It can produce a nice graphical display (requires OpenGL 3.3+), or console output (ANSI compatible console recommended).")
-		fmt.Fprintln(os.Stderr, "In graphical mode, use the arrow keys to scroll the view area, mouse wheel to zoom, and space to pause/unpause.")
-		fmt.Fprintln(os.Stderr, "When paused, use the left mouse button to turn a cell on or off, and the right mouse button to perform one iteration of the game.")
+		msg :=
+			`Plays Conway's Game of Life. It can produce a nice graphical display 
+(requires OpenGL 3.3+), or console output (ANSI compatible console recommended).
+In graphical mode, use the arrow keys to scroll the view area, mouse wheel to 
+zoom, and space to pause/unpause. When paused, use the left mouse button to 
+turn a cell on or off, and the right mouse button to perform one iteration 
+of the game.`
+		fmt.Fprintln(os.Stderr, msg)
 		flag.PrintDefaults()
 	}
 
@@ -49,6 +58,8 @@ func main() {
 			strings.Join(g.PatternNames(), ", "))
 	flag.DurationVar(&iterWait, "w", 100*time.Millisecond,
 		"Duration to wait between each iteration.")
+	flag.StringVar(&winSizeStr, "s", "800x600",
+		"Window height and width--must have the 'x'.")
 	flag.BoolVar(&console, "c", false,
 		"Set to display output to console.")
 	flag.Parse()
@@ -59,8 +70,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	// process window dimensions option
+	var err error
+	pErr := func() {
+		fmt.Fprintln(os.Stderr, "-s flag error: Must be in format \"<height>x<width>\".")
+		os.Exit(1)
+	}
+	hwSplit := strings.Split(winSizeStr, "x")
+	if len(hwSplit) != 2 {
+		pErr()
+	}
+	winBounds.Max.X, err = strconv.ParseFloat(hwSplit[0], 64)
+	if err != nil {
+		pErr()
+	}
+	winBounds.Max.Y, err = strconv.ParseFloat(hwSplit[1], 64)
+	if err != nil {
+		pErr()
+	}
+
+	// construct path to image resources
 	resPath = path.Join(os.Getenv("GOPATH"), "src", "github.com", "quillaja", "go-life")
 
+	// begin
 	if console {
 		g.Animate(g.Patterns[initPattern], 100, iterWait)
 	} else {
@@ -68,26 +100,12 @@ func main() {
 	}
 }
 
-func loadPicture(filename string) (p.Picture, error) {
-	fr, err := os.Open(filename)
-	if err != nil {
-		panic(err)
-	}
-	defer fr.Close()
-
-	img, _, err := image.Decode(fr)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.PictureDataFromImage(img), nil
-}
-
+// the actual game loop. A variety of initialization followed by the draw loop
 func loop() {
 
 	cfg := pixelgl.WindowConfig{
 		Title:  "Life...finds a way.",
-		Bounds: p.R(0, 0, 1024, 768),
+		Bounds: winBounds,
 		VSync:  true,
 	}
 	win, err := pixelgl.NewWindow(cfg)
@@ -106,6 +124,7 @@ func loop() {
 	// game state
 	board := g.Patterns[initPattern]
 	paused := false
+	iterations := 0
 
 	// update the game state (board) every iterWait duration
 	// independently of the graphical draw loop
@@ -116,6 +135,7 @@ func loop() {
 			case <-wait.C:
 				if !paused {
 					board = g.Advance(board)
+					iterations++
 				}
 			default:
 			}
@@ -171,6 +191,7 @@ func loop() {
 		if win.JustPressed(pixelgl.MouseButtonRight) && paused {
 			// allow user to increment the board state 1 iteration
 			board = g.Advance(board)
+			iterations++
 		}
 		cam.Zoom *= math.Pow(cam.ZSpeed, win.MouseScroll().Y)
 
@@ -182,35 +203,49 @@ func loop() {
 
 		// draw
 		if paused {
-			win.Clear(colornames.Gray)
+			win.Clear(colornames.Lightgray)
 		} else {
 			win.Clear(colornames.White)
 		}
 		batch.Draw(win)
 		win.Update()
 
-		// basic speed metric in titlebar
+		// various metrics in titlebar
 		frames++
 		select {
 		case <-second:
 			win.SetTitle(fmt.Sprintf(
-				"%s | FPS: %d | Paused: %v | %d cells",
-				cfg.Title, frames, paused, len(board)))
+				"%s | FPS: %d | Paused: %v | %d cells %d iterations",
+				cfg.Title, frames, paused, len(board), iterations))
 			frames = 0
 		default:
 		}
-
-		// update state
-		// if !paused {
-		// 	board = g.Advance(board)
-		// }
 	}
 }
 
+// convenience function for loading an image file
+func loadPicture(filename string) (p.Picture, error) {
+	fr, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer fr.Close()
+
+	img, _, err := image.Decode(fr)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.PictureDataFromImage(img), nil
+}
+
+// convenience function to convert game.Point to pixel.Vec
 func pToV(point g.Point) p.Vec {
 	return p.V(float64(point.X), float64(point.Y))
 }
 
+// utility function to round floats to ints, since golang is so
+// omniscient to realize that we don't need this crap in the std libary
 func round(val float64) int {
 	if val < 0 {
 		return int(val - 0.5)
