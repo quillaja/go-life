@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"math"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -29,6 +30,8 @@ var (
 	initPattern string
 	iterWait    time.Duration
 	console     bool
+
+	resPath string
 )
 
 // demos the stuff
@@ -55,6 +58,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  Choices are: %v\n", g.PatternNames())
 		os.Exit(1)
 	}
+
+	resPath = path.Join(os.Getenv("GOPATH"), "src", "github.com", "quillaja", "go-life")
 
 	if console {
 		g.Animate(g.Patterns[initPattern], 100, iterWait)
@@ -91,7 +96,7 @@ func loop() {
 	}
 
 	// sprite loading
-	redPic, err := loadPicture("red.png")
+	redPic, err := loadPicture(path.Join(resPath, "red.png"))
 	if err != nil {
 		panic(err)
 	}
