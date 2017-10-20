@@ -7,6 +7,7 @@ import (
 	_ "image/png"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/image/colornames"
@@ -17,7 +18,7 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
-type Camera struct {
+type camera struct {
 	Position p.Vec
 	Speed    float64
 	Zoom     float64
@@ -26,22 +27,40 @@ type Camera struct {
 
 var (
 	initPattern string
-	// pause       time.Duration
+	iterWait    time.Duration
+	console     bool
 )
 
 // demos the stuff
 func main() {
 
-	flag.StringVar(&initPattern, "p", "", "name of an initial pattern.")
-	// flag.DurationVar(&pause, "w", 500, "duration to wait between each iteration")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "Plays Conway's Game of Life. It can produce a nice graphical display (requires OpenGL 3.3+), or console output (ANSI compatible console recommended).")
+		fmt.Fprintln(os.Stderr, "In graphical mode, use the arrow keys to scroll the view area, mouse wheel to zoom, and space to pause/unpause.")
+		fmt.Fprintln(os.Stderr, "When paused, use the left mouse button to turn a cell on or off, and the right mouse button to perform one iteration of the game.")
+		flag.PrintDefaults()
+	}
+
+	flag.StringVar(&initPattern, "p", "blank",
+		"Name of an initial pattern. Choices: "+
+			strings.Join(g.PatternNames(), ", "))
+	flag.DurationVar(&iterWait, "w", 100*time.Millisecond,
+		"Duration to wait between each iteration.")
+	flag.BoolVar(&console, "c", false,
+		"Set to display output to console.")
 	flag.Parse()
 
 	if _, ok := g.Patterns[initPattern]; !ok {
-		fmt.Printf("-p flag error: \"%s\" is an invalid pattern name.", initPattern)
+		fmt.Fprintf(os.Stderr, "-p flag error: \"%s\" is an invalid pattern name.\n", initPattern)
+		fmt.Fprintf(os.Stderr, "  Choices are: %v\n", g.PatternNames())
 		os.Exit(1)
 	}
 
-	pixelgl.Run(loop)
+	if console {
+		g.Animate(g.Patterns[initPattern], 100, iterWait)
+	} else {
+		pixelgl.Run(loop)
+	}
 }
 
 func loadPicture(filename string) (p.Picture, error) {
@@ -83,8 +102,24 @@ func loop() {
 	board := g.Patterns[initPattern]
 	paused := false
 
+	// update the game state (board) every iterWait duration
+	// independently of the graphical draw loop
+	go func() {
+		wait := time.NewTicker(iterWait)
+		for !win.Closed() {
+			select {
+			case <-wait.C:
+				if !paused {
+					board = g.Advance(board)
+				}
+			default:
+			}
+		}
+		wait.Stop()
+	}()
+
 	// various state for drawing
-	cam := Camera{Position: p.ZV, Speed: 250.0, Zoom: 1.0, ZSpeed: 1.1}
+	cam := camera{Position: p.ZV, Speed: 250.0, Zoom: 1.0, ZSpeed: 1.1}
 	frames := 0
 	second := time.Tick(time.Second)
 	last := time.Now()
@@ -121,7 +156,7 @@ func loop() {
 			// truncation will often place dot in wrong spot since
 			// Pixel uses the sprite's center as it's position.
 			mouse := camMatrix.Unproject(win.MousePosition())
-			point := g.Point{Round(mouse.X), Round(mouse.Y)}
+			point := g.Point{round(mouse.X), round(mouse.Y)}
 			if board[point] {
 				delete(board, point)
 			} else {
@@ -161,9 +196,9 @@ func loop() {
 		}
 
 		// update state
-		if !paused {
-			board = g.Advance(board)
-		}
+		// if !paused {
+		// 	board = g.Advance(board)
+		// }
 	}
 }
 
@@ -171,7 +206,7 @@ func pToV(point g.Point) p.Vec {
 	return p.V(float64(point.X), float64(point.Y))
 }
 
-func Round(val float64) int {
+func round(val float64) int {
 	if val < 0 {
 		return int(val - 0.5)
 	}
