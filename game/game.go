@@ -14,20 +14,19 @@ type Point struct {
 	Y int
 }
 
-// Neighbors produces a slice of the nearby cells to Point p.
-func Neighbors(p Point) []Point {
+// Neighbors produces an array of the nearby cells to Point p.
+func Neighbors(p Point) [8]Point {
 
-	pts := []Point{}
-
-	for x := -1; x <= 1; x++ {
-		for y := -1; y <= 1; y++ {
-			pts = append(pts, Point{X: p.X + x, Y: p.Y + y})
-		}
+	return [8]Point{
+		Point{p.X + 1, p.Y + 1},
+		Point{p.X + 1, p.Y - 1},
+		Point{p.X + 1, p.Y},
+		Point{p.X, p.Y - 1},
+		Point{p.X, p.Y + 1},
+		Point{p.X - 1, p.Y + 1},
+		Point{p.X - 1, p.Y - 1},
+		Point{p.X - 1, p.Y},
 	}
-
-	// have to remove the point at index 4, since it is the
-	// original point itself.
-	return append(pts[:4], pts[5:]...)
 }
 
 // Advance applies the rules to the given Board and produces a new
