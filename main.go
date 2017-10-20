@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/image/colornames"
 
-	g "local/life/game"
+	g "github.com/quillaja/go-life/game"
 
 	p "github.com/faiface/pixel"
 	"github.com/faiface/pixel/pixelgl"
