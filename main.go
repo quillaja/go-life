@@ -3,12 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go/build"
 	"image"
 	_ "image/png"
 	"math"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -91,13 +89,13 @@ of the game.`
 	}
 
 	// construct path to image resources
-	goPath := strings.Split(os.Getenv("GOPATH"), string(os.PathListSeparator))
-	if len(goPath) == 0 {
-		goPath = append(goPath, build.Default.GOPATH)
-	} else if goPath[0] == "" {
-		goPath[0] = build.Default.GOPATH
-	}
-	resPath = filepath.Join(goPath[0], "src", "github.com", "quillaja", "go-life")
+	// goPath := strings.Split(os.Getenv("GOPATH"), string(os.PathListSeparator))
+	// if len(goPath) == 0 {
+	// 	goPath = append(goPath, build.Default.GOPATH)
+	// } else if goPath[0] == "" {
+	// 	goPath[0] = build.Default.GOPATH
+	// }
+	// resPath = filepath.Join(goPath[0], "src", "github.com", "quillaja", "go-life")
 
 	// begin
 	if console {
@@ -120,12 +118,11 @@ func loop() {
 		panic(err)
 	}
 
-	// sprite loading
-	redPic, err := loadPicture(filepath.Join(resPath, "red.png"))
-	if err != nil {
-		panic(err)
-	}
+	// sprite creation
+	redPic := p.MakePictureData(p.R(0, 0, 1, 1))
+	redPic.Pix[0] = colornames.Red
 	red := p.NewSprite(redPic, redPic.Bounds())
+
 	batch := p.NewBatch(&p.TrianglesData{}, redPic)
 
 	// game state
